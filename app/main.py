@@ -1,5 +1,5 @@
 from typing import Union
-
+import uvicorn
 from fastapi import FastAPI
 
 from app.common.config import conf
