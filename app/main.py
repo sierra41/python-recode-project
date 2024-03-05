@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from app.common.config import conf
 from app.database.conn import db
-from app.router import index
+from app.routes import index
 from app.util.log import logger
 
 
