@@ -4,6 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import logging
 
+from app.util.log import logger
+
 
 class SQLAlchemy:
     def __init__(self, app: FastAPI = None, **kwargs):
@@ -19,7 +21,10 @@ class SQLAlchemy:
         :param kwargs:
         :return:
         """
+        #logger.info("----------[conn] init_app----------");
+
         database_url = kwargs.get("DB_URL")
+        #logger.info("----------[conn] DB database_url----------", database_url)
         pool_recycle = kwargs.setdefault("DB_POOL_RECYCLE", 900)
         echo = kwargs.setdefault("DB_ECHO", True)
 
@@ -31,17 +36,18 @@ class SQLAlchemy:
         )
         self._session = sessionmaker(autocommit=False, autoflush=False, bind=self._engine)
 
-        @app.on_event("startup")
+        @app.on_event("startup")  # 앱 실행시
         def startup():
             self._engine.connect()
             logging.info("DB connected.")
 
-        @app.on_event("shutdown")
+        @app.on_event("shutdown") # 앱 종료시
         def shutdown():
             self._session.close_all()
             self._engine.dispose()
             logging.info("DB disconnected")
 
+    # sess
     def get_db(self):
         """
         요청마다 DB 세션 유지 함수

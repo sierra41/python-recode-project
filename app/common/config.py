@@ -1,6 +1,8 @@
 from dataclasses import dataclass, asdict
 from os import environ, path
 
+from app.util.log import logger
+
 base_dir = path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
 # 현재 파일 기준으로 파일 프로젝트 폴더 위치 설정
 
@@ -26,7 +28,9 @@ class LocalConfig(Config):
   Local Configuration - 자식 클래스
   """
   PROJ_RELOAD: bool = True
-
+  DB_URL: str = "mysql+pymysql://root@localhost:3306/recode?charset=utf8mb4"
+  #데이터베이스 연동 : mysql+pymysql://${USERNAME}:${PASSWORD}@${HOST}:${PORT}/${DATABASE}?charset=utf8mb4
+  #logger.info("----------[config] DB_URI----------", DB_URL)
 
 @dataclass
 class ProdConfig(Config):
