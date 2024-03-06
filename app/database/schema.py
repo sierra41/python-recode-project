@@ -51,6 +51,9 @@ class BaseMixin:
         :return:
         """
         session = next(db.session())
+        # 회원가입의 경우는 commit=ture가 필요하기 때문에 받은 session으로 작업하는데 로그인은 commit 과정이 필요없기 때문에 또 다른 session을 받아와서 사용 가능. 리턴 후 자동반납
+        # 따라서 함수 한개가 작동할 때 session이 동시에 여러개 열릴 수 있음.
+        # 나중에 트래픽이나 다른 부분이 부담이 된다면 회원가입처럼 session을 받아서 사용가능.
         query = session.query(cls)
         for key, val in kwargs.items():
             col = getattr(cls, key)
@@ -58,6 +61,7 @@ class BaseMixin:
 
         if query.count() > 1:
             raise Exception("Only one row is supposed to be returned, but got more than one row.")
+        # 나중에 filter 추가
         return query.first()
 
 

@@ -41,6 +41,7 @@ async def register(sns_type: SnsType, reg_info: UserRegister, session: Session =
     :return:
     """
     if sns_type == SnsType.email:
+        # 1. 중복이메일 확인
         is_exist = await is_email_exist(reg_info.email)
         # reg_info: UserRegister -> UserRegister 객체로 받아짐.
         if not reg_info.email or not reg_info.pw: # UserRegister에서 email, pw 값이 없는 경우
@@ -49,11 +50,15 @@ async def register(sns_type: SnsType, reg_info: UserRegister, session: Session =
             # raise 를 이용하여 에러를 보내고, 해당 에러를 미들웨어가 잡아서 자동으로 미리 지정한 코드로 처리하는 형태.
         if is_exist:
             return JSONResponse(status_code=400, content=dict(msg="EMAIL_EXISTS"))
+        # 2. 비밀번호 해시 후 유저 정보 저장
         hash_pw = bcrypt.hashpw(reg_info.pw.encode("utf-8"), bcrypt.gensalt())
+        # 회원가입을 할때 bcrypt 라이브러리를 사용하여, 패스워드를 해시
         # bcrypt : 해시함수. 해시는 바이트 코드만 가능. gensalt() - 이용하여 해시 암호화의 정도가 달라짐.
         # bcrypt.hashpw() - 해시된 pw를 반환함
+        # 2-2 유저 저장
         new_user = Users.create(session, auto_commit=True, pw=hash_pw, email=reg_info.email)
         # 이전 강의에서는 Users().create() 방식으로 유저를 생성했으나 지금은 클래스메소드로 변경하여 Users.create()로 사용가능.
+        # 3. 저장된 유저 정보를 기반으로 jwt 발급
         token = dict(
             Authorization=f"Bearer {create_access_token(data=UserToken.from_orm(new_user).dict(exclude={'pw', 'marketing_agree'}), )}")
                                                          # UserToken - json으로 변경. # (exclude={'pw', 'marketing_agree'}) - pw와 marketing_agree는 제외하겠다는 의미
@@ -61,15 +66,32 @@ async def register(sns_type: SnsType, reg_info: UserRegister, session: Session =
         return token
     return JSONResponse(status_code=400, content=dict(msg="NOT_SUPPORTED"))
     # return   "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwiZW1haWwiOiJmc2Rmd0BnbWFpbC5jb20iLCJuYW1lIjpudWxsLCJwaG9uZV9udW1iZXIiOm51bGwsInByb2ZpbGVfaW1nIjpudWxsLCJzbnNfdHlwZSI6bnVsbH0.9gDyoKPs5ma4QLF-7Lwv9cJdhAOovImDHfv3zBzKvLA"
-
+        # 4강 기준 만료가 안되는 토큰
 @router.post("/login/{sns_type}", status_code=200)
 async def login(sns_type: SnsType, user_info: UserRegister):
-    ...
+    if sns_type == SnsType.email:
+        # 1. 이메일 유무 확인
+        is_exist = await is_email_exist(user_info.email)
+        if not user_info.email or not user_info.pw:
+            return JSONResponse(status_code=400, content=dict(msg="Email and PW must be provided'"))
+        if not is_exist:
+            return JSONResponse(status_code=400, content=dict(msg="NO_MATCH_USER"))
+        user = Users.get(email=user_info.email)
+        # 2. 비밀번호 해시 후 db 저장된 비밀번호와 비교
+        is_verified = bcrypt.checkpw(user_info.pw.encode("utf-8"), user.pw.encode("utf-8"))
+        #  bcrypt 라이브러리를 사용 비밀번호를 다시 해시 하여, 패스워드
+        if not is_verified:
+            return JSONResponse(status_code=400, content=dict(msg="NO_MATCH_USER")) # 이메일 유무와 패스워드 정확도의 에러코드는 동일하게 하는 것이 보안에 좋음.
+        # 3. 완료 후 저장된 유저 정보를 기반으로 jwt 발급
+        token = dict(Authorization=f"Bearer {create_access_token(data=UserToken.from_orm(user).dict(exclude={'pw', 'marketing_agree'}),)}")
+        return token
+    return JSONResponse(status_code=400, content=dict(msg="NOT_SUPPORTED"))
 
 async def is_email_exist(email: str):
     get_email = Users.get(email=email)
     if get_email:
         return True
+        #return get_email 로그인한 이메일값의 사용이 필요하면 이런식으로도 사용 가능
     return False
 
 

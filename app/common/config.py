@@ -27,18 +27,21 @@ class LocalConfig(Config):
   """
   Local Configuration - 자식 클래스
   """
-  PROJ_RELOAD: bool = True
+  #PROJ_RELOAD: bool = True
   DB_URL: str = "mysql+pymysql://root@localhost:3306/recode?charset=utf8mb4"
-  #데이터베이스 연동 : mysql+pymysql://${USERNAME}:${PASSWORD}@${HOST}:${PORT}/${DATABASE}?charset=utf8mb4
+    #데이터베이스 연동 : mysql+pymysql://${USERNAME}:${PASSWORD}@${HOST}:${PORT}/${DATABASE}?charset=utf8mb4
   #logger.info("----------[config] DB_URI----------", DB_URL)
+  TRUSTED_HOSTS =["*"]
+  ALLOW_SITE =["*"]
 
 @dataclass
 class ProdConfig(Config):
   """
   Prod Configuration - 자식 클래스
   """
-  PROJ_RELOAD: bool = False
-
+  #PROJ_RELOAD: bool = False
+  TRUSTED_HOSTS =["*"]
+  ALLOW_SITE =["*"]
 
 #print(asdict(LocalConfig())) # 클래스가 dict 로 변경됨
 
