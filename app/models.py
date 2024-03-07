@@ -21,7 +21,7 @@ class SnsType(str, Enum):
     facebook: str = "facebook"
     google: str = "google"
     kakao: str = "kakao"
-    # 여기서 정해진 Enum 외의 값이 들어오면 422 error
+    # 여기서 정해진 Enum 외의 값이 들어오면 422 errors
     # request model
 
 
@@ -38,5 +38,18 @@ class UserToken(BaseModel):
     phone_number: str = None
     profile_img: str = None
     sns_type: str = None
+    class Config:
+        orm_mode = True
+
+
+class UserMe(BaseModel):
+    id: int
+    #pw: str = None
+    email: str = None
+    phone_number: str = None
+    name: str = None
+    profile_img: str = None
+    sns_type: str = None
+
     class Config:
         orm_mode = True

@@ -20,7 +20,7 @@ async def index(session: Session = Depends(db.session),):
     # user = Users(status='active', name='hello')
     # session.add(user)
     # session.commit()
-    #
+
     # Users().create(session, auto_commit=True, name="원숭이")
     current_time = datetime.utcnow()
     return Response(f"Notification API (UTC: {current_time.strftime('%Y.%m.%d %H:%M:%S')})")

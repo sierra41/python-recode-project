@@ -5,16 +5,17 @@ import jwt
 
 
 from fastapi.params import Header
-from jwt import PyJWTError
+from jwt.exceptions import ExpiredSignatureError, DecodeError
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.datastructures import URL, Headers
 from starlette.responses import JSONResponse
-from starlette.responses import PlainTextResponse, RedirectResponse, Response
+from app.errors import exceptions as ex
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.common import config, consts
 from app.common.config import conf
+from app.errors.exceptions import APIException
 from app.models import UserToken
 
 from app.utils.date_utils import D
@@ -59,39 +60,42 @@ class AccessControl:
         if await self.url_pattern_check(request.url.path, self.except_path_regex) or request.url.path in self.except_path_list:
             return await self.app(scope, receive, send)
             # except_path_regex, except_path_list check  - 더 이상 검증하지 않고 되돌아감
+        try:
+            if request.url.path.startswith("/api"):
+                # api 인경우 헤더로 토큰 검사
+                if "authorization" in request.headers.keys():
+                    print(" 토큰 검사 authorization", request.headers.keys())
+                    token_info = await self.token_decode(access_token=request.headers.get("Authorization"))
+                    request.state.user = UserToken(**token_info)
+                    # 토큰 없음
+                else:
+                    if "Authorization" not in request.headers.keys():
+                        raise ex.NotAuthorized()
 
-        if request.url.path.startswith("/api"):
-            # api 인경우 헤더로 토큰 검사
-            if "Authorization" in request.headers.keys():
-                request.state.user = await self.token_decode(access_token=request.headers.get("Authorization"))
-                # 토큰 없음
             else:
-                if "Authorization" not in request.headers.keys():
-                    response = JSONResponse(status_code=401, content=dict(msg="AUTHORIZATION_REQUIRED"))
-                    return await response(scope, receive, send)
-        else:
-            # 템플릿 렌더링인 경우 쿠키에서 토큰 검사 - 프론트가 같이 개발되는 경우
+                print("else 토큰 검사", request.headers.keys())
+                # 템플릿 렌더링인 경우 쿠키에서 토큰 검사 - 프론트가 같이 개발되는 경우
+                request.cookies["Authorization"] = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MTQsImVtYWlsIjoia29hbGFAZGluZ3JyLmNvbSIsIm5hbWUiOm51bGwsInBob25lX251bWJlciI6bnVsbCwicHJvZmlsZV9pbWciOm51bGwsInNuc190eXBlIjpudWxsfQ.4vgrFvxgH8odoXMvV70BBqyqXOFa2NDQtzYkGywhV48"
+
+                if "Authorization" not in request.cookies.keys():
+                    raise ex.NotAuthorized()
+                token_info = await self.token_decode(access_token=request.cookies.get("Authorization"))
+                request.state.user = UserToken(**token_info)
+
+            request.state.req_time = D.datetime()
+            print(D.datetime()) # 2024-03-06 06:22:51.908516
+            print(D.date()) # 2024-03-06
+            print(D.date_num()) # 20240306
             print(request.cookies)
-            request.cookies["Authorization"] = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MTQsImVtYWlsIjoia29hbGFAZGluZ3JyLmNvbSIsIm5hbWUiOm51bGwsInBob25lX251bWJlciI6bnVsbCwicHJvZmlsZV9pbWciOm51bGwsInNuc190eXBlIjpudWxsfQ.4vgrFvxgH8odoXMvV70BBqyqXOFa2NDQtzYkGywhV48"
-
-            if "Authorization" not in request.cookies.keys():
-                response = JSONResponse(status_code=401, content=dict(msg="AUTHORIZATION_REQUIRED"))
-                return await response(scope, receive, send)
-
-            request.state.user = await self.token_decode(access_token=request.cookies.get("Authorization"))
-
-        request.state.req_time = D.datetime()
-
-        print(D.datetime()) # 2024-03-06 06:22:51.908516
-        print(D.date()) # 2024-03-06
-        print(D.date_num()) # 20240306
-        print(request.cookies)
-        request.cookies[
-            "Authorization"] = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MTQsImVtYWlsIjoia29hbGFAZGluZ3JyLmNvbSIsIm5hbWUiOm51bGwsInBob25lX251bWJlciI6bnVsbCwicHJvZmlsZV9pbWciOm51bGwsInNuc190eXBlIjpudWxsfQ.4vgrFvxgH8odoXMvV70BBqyqXOFa2NDQtzYkGywhV48"
-
-        print(headers)
-        #Headers({'host': '0.0.0.0:8080', 'connection': 'keep-alive', 'cache-control': 'max-age=0', 'upgrade-insecure-requests': '1', 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'})
-        res = await self.app(scope, receive, send)
+            print(headers)
+            res = await self.app(scope, receive, send)
+        except APIException as e:
+            # try except에 걸리면 exception_handler
+            res = await self.exception_handler(e)
+            res = await res(scope, receive, send)
+        finally:
+            #  try except에 걸리든 안걸리든 Logging
+            ...
         return res
 
     @staticmethod
@@ -111,8 +115,15 @@ class AccessControl:
             access_token = access_token.replace("Bearer ", "")
             payload = jwt.decode(access_token, key=consts.JWT_SECRET, algorithms=[consts.JWT_ALGORITHM])
             # token 생성시 활용한  key=consts.JWT_SECRET, algorithms=[consts.JWT_ALGORITHM]으로 디코딩
-
-        except PyJWTError as e:
-            print(e)
-            # Raise Error
+        except ExpiredSignatureError:
+            raise ex.TokenExpiredEx()
+        except DecodeError:
+            raise ex.TokenDecodeEx()
         return payload
+
+
+    @staticmethod
+    async def exception_handler(error: APIException):
+        error_dict = dict(status=error.status_code, msg=error.msg, detail=error.detail, code=error.code)
+        res = JSONResponse(status_code=error.status_code, content=error_dict)
+        return res
