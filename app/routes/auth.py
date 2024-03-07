@@ -26,7 +26,7 @@ from app.models import SnsType, Token, UserToken, UserRegister  # 객체화 하�
 11. 탈퇴 회원 정보 저장 기간 동안 보유(법적 최대 한도차 내에서, 가입 때 약관 동의 받아야 함, 재가입 방지 용도로 사용하면 가능)
 """
 
-router = APIRouter()
+router = APIRouter(prefix="/auth")
 
 
 # @router - 엔드포인트
