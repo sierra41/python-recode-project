@@ -28,11 +28,11 @@ async def index(session: Session = Depends(db.session),):
 
 
 @router.get("/test")
-async def index(request: Request):
+async def test(request: Request):
     """
     ELB 상태 체크용 API
     :return:
     """
-    print(request.state.user)
+    print("state.user", request.state.user)
     current_time = datetime.utcnow()
     return Response(f"Notification API (UTC: {current_time.strftime('%Y.%m.%d %H:%M:%S')})")
